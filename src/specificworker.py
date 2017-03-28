@@ -66,7 +66,7 @@ class SpecificWorker(GenericWorker):
 
         self.mutex_goals=QtCore.QMutex(QtCore.QMutex.Recursive)
 
-	self.mutex_swap=QtCore.QMutex(QtCore.QMutex.Recursive)
+        self.mutex_swap=QtCore.QMutex(QtCore.QMutex.Recursive)
         self.timer2 = QtCore.QTimer(self)
         self.timer.timeout.connect(self.readState)
         self.timer.start(200)
@@ -128,29 +128,23 @@ class SpecificWorker(GenericWorker):
     def readState(self):
         for x in self.motorParams:
             try:
-		with QtCore.QMutexLocker(self.mutex_bus):
-                  state = MotorState()
-                  state.pos = float(dynamixel.get_position(self.bus, x.busId, False, num_error_attempts=1))
-                  state.pos=(state.pos) * (2.618 + 2.618) / 1023 -2.618
-                  if x.invertedSign == "true":
-                     state.pos=-state.pos
-                  state.isMoving = dynamixel.get_is_moving(self.bus, x.busId, False, num_error_attempts=1)
-		  state.tiempo=timer()
-                  
- 	        posv=self.motorStateMapReadOnly[x.name].pos
-		told=self.motorStateMapReadOnly[x.name].tiempo
-		state.vel= (state.pos-posv)/(state.tiempo-tiempo)
-		self.motorStateMapWrite[x.name] = state
-                #state.temperature=
-                #packet = packets.get_read_packet(m.busId,registers.PRESENT_TEMPERATURE,2)
-                                    #packet = packets.get_read_packet(m.busId,registers.PRESENT_SPEED,2)
-                                    #print packet
-                
-	    except Exception, e:
- 	    	print e
-	with QtCore.QMutexLocker(self.mutex_swap):
+                state = MotorState()
+                with QtCore.QMutexLocker(self.mutex_bus):
+                    state.pos = float(dynamixel.get_position(self.bus, x.busId, False, num_error_attempts=1))
+                    state.pos=(state.pos) * (2.618 + 2.618) / 1023 -2.618
+                    state.isMoving = dynamixel.get_is_moving(self.bus, x.busId, False, num_error_attempts=1)
+                if x.invertedSign == "true":
+                    state.pos=-state.pos
+                state.tiempo=time.time()
+                self.motorStateMapWrite[x.name] = state
+                posV=self.motorStateMapReadOnly[x.name].pos
+                tiempoV=self.motorStateMapReadOnly[x.name].tiempo
+                if self.motorStateMapReadOnly!=self.motorStateMapWrite:
+                    state.vel= (state.pos-posV)/(state.tiempo-tiempoV)
+            except Exception, e:
+                print "Fallo leyendo motores"
+        with QtCore.QMutexLocker(self.mutex_swap):
             self.motorStateMapReadOnly=self.motorStateMapArray[self.lastIndex]
-            #print  self.motorStateMapReadOnly[self.motorParams[1].name]
             self.lastIndex=self.lastIndex^1
             self.motorStateMapWrite=self.motorStateMapArray[self.lastIndex]
 
@@ -213,16 +207,21 @@ class SpecificWorker(GenericWorker):
     # getAllMotorState
     #
     def getAllMotorState(self):
-	mapAux=0
-        with QtCore.QMutexLocker(self.mutex_swap)
-            #copiar el readOnly
-	    
-
-	for x in self.motorParams:
-            tiempo=timer()
-	    mapAux[x.name].pos+=mapAux[x.name].vel * tiempo
-	    mapAux[x.name].pos=(mapAux[x.name].pos) * (2.618 + 2.618) / 1023 -2.618
-	return mapAux
+        mapAux={}
+        vel=0
+        pos=0
+        for x in self.motorParams:
+            with QtCore.QMutexLocker(self.mutex_swap):
+                vel=self.motorStateMapReadOnly[x.name].vel
+                pos=self.motorStateMapReadOnly[x.name].pos
+            tiempo=time.time()
+            state=MotorState()
+            state.pos=pos+vel * tiempo
+            state.pos=(state.pos) * (2.618 + 2.618) / 1023 -2.618
+            mapAux[x.name]=state
+            #print mapAux[x.name]
+            #print mapAux[x.name].vel
+        return mapAux
 
 
     #
