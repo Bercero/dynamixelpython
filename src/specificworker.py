@@ -216,8 +216,9 @@ class SpecificWorker(GenericWorker):
                 pos=self.motorStateMapReadOnly[x.name].pos
             tiempo=time.time()
             state=MotorState()
+            state.vel=vel
             state.pos=pos+vel * tiempo
-            state.pos=(state.pos) * (2.618 + 2.618) / 1023 -2.618
+            #state.pos=(state.pos) * (2.618 + 2.618) / 1023 -2.618
             mapAux[x.name]=state
             #print mapAux[x.name]
             #print mapAux[x.name].vel
